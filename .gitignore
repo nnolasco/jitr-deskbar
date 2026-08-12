@@ -1,0 +1,4 @@
+bin/
+__pycache__/
+# design comps with real account data -- kept local only
+references/
