@@ -103,12 +103,53 @@ version:
   shell maintains at
   `HKCU\...\Explorer\VirtualDesktops\CurrentVirtualDesktop`; profiles are keyed
   by that GUID.
-- Claude usage comes from the same OAuth endpoint the Claude Code `/usage`
-  screen uses, with the token Claude Code keeps on disk. Session detection reads
-  the `✳ <session name>` titles Claude Code writes into terminal tabs, filtered
-  to windows on the current desktop via `IVirtualDesktopManager`.
+- Claude usage prefers local data and touches the network at most once per 10
+  minutes machine-wide — see
+  [Usage meters and rate limits](#usage-meters-and-rate-limits) for why.
+  Session detection reads the `✳ <session name>` titles Claude Code writes into
+  terminal tabs, filtered to windows on the current desktop via
+  `IVirtualDesktopManager`.
 - Everything is documented, stable API surface plus one long-lived registry
   value — no undocumented per-build COM interfaces.
+
+## Usage meters and rate limits
+
+The usage meters are fed from two sources, chosen carefully to avoid a trap
+that bites most Claude usage widgets:
+
+- **Session and Weekly (preferred: local files, zero network).** Claude Code
+  hands its statusline command a JSON payload every turn that includes
+  `rate_limits` — the exact numbers behind the `/usage` screen. If a statusline
+  integration tees those payloads to `~/.claude/jitr-status-*.json` (JITR's
+  does), DeskBar reads the newest file and never needs the network for these
+  two meters.
+- **The per-model meter (e.g. "Fable"), and everything on machines without
+  those files: a deliberately slow poll.** The per-model scoped weekly limit is
+  *not* in the statusline payload; it only exists on
+  `GET api.anthropic.com/api/oauth/usage` (the undocumented endpoint behind
+  Claude Code's `/usage` screen). That endpoint rate-limits **per account, not
+  per client**, and aggressively: polling it even once a minute puts the whole
+  account into an HTTP 429 state that persists for 30+ minutes, breaks Claude
+  Code's own `/usage` screen, and returns `retry-after: 0` so backoff can't
+  recover. Anthropic has closed multiple reports about this as "not planned"
+  (anthropics/claude-code
+  [#31021](https://github.com/anthropics/claude-code/issues/31021),
+  [#30930](https://github.com/anthropics/claude-code/issues/30930),
+  [#31637](https://github.com/anthropics/claude-code/issues/31637)), so the
+  limit must be treated as permanent.
+
+To stay under it, DeskBar polls the endpoint **at most once per 10 minutes
+across every process on the machine**, not per bar: all consumers share
+`~/.claude/jitr-usage-endpoint.json` and whoever finds the 10-minute slot free
+stamps `attemptedAt` into the file *before* requesting, so everything else
+backs off. The response rows are cached in the same file; a 429 (or any
+failure) keeps the last good rows on screen instead of erroring. Other JITR
+tools (jitr-term, jitr-lite) honor the same claim file, so adding more of them
+never adds requests.
+
+If you're extending DeskBar: do not shorten the interval, bypass the claim
+file, or fetch per-instance — one extra poller can 429 the account for
+everything, including Claude Code itself.
 
 ## Roadmap
 

@@ -62,7 +62,8 @@ and Exit.
 | Data | Source | Notes |
 |---|---|---|
 | Account email | `~/.claude.json` `oauthAccount.emailAddress` | re-read every 5 min |
-| Limits | `GET https://api.anthropic.com/api/oauth/usage`, Bearer token from `~/.claude/.credentials.json` (`claudeAiOauth.accessToken`) | the undocumented endpoint behind Claude Code's `/usage` screen; kinds `session`, `weekly_all`, `weekly_scoped`. 60s cache; every failure renders "n/a", never an error |
+| Limits (Session/Weekly) | `rate_limits` in the newest `~/.claude/jitr-status-<sessionId>.json` statusline tee file | local, zero network; tee files older than 24h -> "n/a (no recent claude session)" |
+| Limits (per-model row; all rows without tee files) | `GET https://api.anthropic.com/api/oauth/usage`, Bearer token from `~/.claude/.credentials.json` (`claudeAiOauth.accessToken`) | the undocumented endpoint behind Claude Code's `/usage` screen; kinds `session`, `weekly_all`, `weekly_scoped`. Rate-limits the whole ACCOUNT into persistent 429s under real polling, so it is fetched at most once per 10 min machine-wide via the shared claim/cache file `~/.claude/jitr-usage-endpoint.json` ({attemptedAt, fetchedAt, lastStatus, rows:[{kind,label,used,resets}]}; stamp `attemptedAt` before requesting; failures keep last-good rows). jitr-term/jitr-lite honor the same file. See README "Usage meters and rate limits". Every failure renders "n/a", never an error |
 | Sessions on this machine | `~/.claude/jitr-status-<sessionId>.json` files written by the statusline tee | fresh = `receivedAt` within 2 min; carries `session_name`, `cwd`, `model` |
 
 ## Session detection (per desktop)

@@ -739,6 +739,8 @@ namespace JitrDeskBar
         {
             _email = Usage.AccountEmail();
             _emailText.Text = _email != null ? _email : "claude: not logged in";
+            // Cheap every tick: the fetch reads local files; the rate-limited oauth/usage
+            // endpoint is only touched via Usage's shared 10-minute claim file.
             Usage.FetchAsync(delegate(UsageResult r)
             {
                 Dispatcher.BeginInvoke((Action)delegate
